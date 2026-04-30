@@ -1,0 +1,47 @@
+# Render Blueprint for the DCL Church Management System backend.
+# To deploy: push this repo to GitHub, then in Render dashboard click
+# "New +" -> "Blueprint" and point it at your repo. Render will read this file.
+#
+# Schema migrations: handled by the API server itself at startup
+# (`bootstrapDatabase()`). No drizzle-kit at deploy time, no path-glob bugs,
+# no internal-vs-external hostname issues. The server creates any missing
+# tables before it begins accepting traffic, and refuses to start if the
+# database is unreachable.
+
+databases:
+  - name: dcl-postgres
+    plan: free
+    region: frankfurt
+    databaseName: dcl
+    user: dcl
+    ipAllowList: []
+
+services:
+  - type: web
+    name: dcl-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: .
+    buildCommand: npm install -g pnpm@9 && pnpm install --no-frozen-lockfile --prod=false && pnpm --filter @workspace/api-server run build
+    startCommand: pnpm --filter @workspace/api-server run start
+    healthCheckPath: /api/healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dcl-postgres
+          property: connectionString
+      # Comma-separated list of allowed browser origins (your Firebase
+      # Hosting URL, plus any custom domains). Example:
+      #   https://dcl-church.web.app,https://www.dclugazi.org
+      - key: CORS_ORIGINS
+        sync: false
+      # Paste the entire Firebase service account JSON (one line) into this
+      # value. Get it from Firebase Console -> Project settings ->
+      # Service accounts -> Generate new private key.
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false

@@ -1,0 +1,1438 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Deliverance Church Lugazi (DCL) Church Management System API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: Auth
+    description: Browser authentication endpoints.
+  - name: Public
+    description: Public-facing read-only church information.
+  - name: Branches
+    description: Church branch management.
+  - name: People
+    description: Pastors, ministers, and members.
+  - name: Departments
+    description: Departments / ministries grouping members under leaders.
+  - name: Announcements
+    description: Notes board / announcements with media.
+  - name: Finance
+    description: Offerings, tithes, expenses, and finance summaries.
+  - name: Attendance
+    description: Service attendance records.
+  - name: Storage
+    description: Document and media storage.
+  - name: Social
+    description: Social media links for the church.
+  - name: Settings
+    description: Site-wide settings (mission, vision, core values).
+  - name: Dashboard
+    description: Aggregated dashboard summary endpoints.
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /auth/user:
+    get:
+      tags: [Auth]
+      operationId: getCurrentAuthUser
+      summary: Get the currently authenticated user
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: Auth status resolved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUserEnvelope'
+  /login:
+    get:
+      tags: [Auth]
+      operationId: beginBrowserLogin
+      summary: Start the browser OIDC login flow
+      parameters:
+        - name: returnTo
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to the OIDC authorization endpoint.
+  /callback:
+    get:
+      tags: [Auth]
+      operationId: handleBrowserLoginCallback
+      summary: Complete the browser OIDC login flow
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: iss
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uri
+      responses:
+        '302':
+          description: Redirect to returnTo path.
+  /logout:
+    get:
+      tags: [Auth]
+      operationId: logoutBrowserSession
+      summary: Clear the session and begin OIDC logout
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '302':
+          description: Redirect to OIDC provider logout URL.
+
+  /public/site:
+    get:
+      tags: [Public]
+      operationId: getPublicSite
+      summary: Public site content (mission, vision, core values, branches, social, recent announcements)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicSite'
+
+  /branches:
+    get:
+      tags: [Branches]
+      operationId: listBranches
+      summary: List all church branches
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Branch'
+    post:
+      tags: [Branches]
+      operationId: createBranch
+      summary: Create a branch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+  /branches/{id}:
+    get:
+      tags: [Branches]
+      operationId: getBranch
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+    patch:
+      tags: [Branches]
+      operationId: updateBranch
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+    delete:
+      tags: [Branches]
+      operationId: deleteBranch
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Deleted
+
+  /people:
+    get:
+      tags: [People]
+      operationId: listPeople
+      summary: List pastors / ministers / members (filterable)
+      parameters:
+        - name: role
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/PersonRole'
+        - name: branchId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: departmentId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Person'
+    post:
+      tags: [People]
+      operationId: createPerson
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Person'
+  /people/{id}:
+    get:
+      tags: [People]
+      operationId: getPerson
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Person'
+    patch:
+      tags: [People]
+      operationId: updatePerson
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Person'
+    delete:
+      tags: [People]
+      operationId: deletePerson
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Deleted
+
+  /departments:
+    get:
+      tags: [Departments]
+      operationId: listDepartments
+      parameters:
+        - name: branchId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Department'
+    post:
+      tags: [Departments]
+      operationId: createDepartment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+  /departments/{id}:
+    get:
+      tags: [Departments]
+      operationId: getDepartment
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+    patch:
+      tags: [Departments]
+      operationId: updateDepartment
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+    delete:
+      tags: [Departments]
+      operationId: deleteDepartment
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Deleted
+
+  /announcements:
+    get:
+      tags: [Announcements]
+      operationId: listAnnouncements
+      parameters:
+        - name: pinned
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: publicOnly
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Announcement'
+    post:
+      tags: [Announcements]
+      operationId: createAnnouncement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnouncementInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Announcement'
+  /announcements/{id}:
+    get:
+      tags: [Announcements]
+      operationId: getAnnouncement
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Announcement'
+    patch:
+      tags: [Announcements]
+      operationId: updateAnnouncement
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnnouncementInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Announcement'
+    delete:
+      tags: [Announcements]
+      operationId: deleteAnnouncement
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Deleted
+
+  /finance/transactions:
+    get:
+      tags: [Finance]
+      operationId: listFinanceTransactions
+      parameters:
+        - name: branchId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: kind
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/FinanceKind'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FinanceTransaction'
+    post:
+      tags: [Finance]
+      operationId: createFinanceTransaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinanceTransactionInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinanceTransaction'
+  /finance/transactions/{id}:
+    patch:
+      tags: [Finance]
+      operationId: updateFinanceTransaction
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinanceTransactionInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinanceTransaction'
+    delete:
+      tags: [Finance]
+      operationId: deleteFinanceTransaction
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Deleted
+  /finance/summary:
+    get:
+      tags: [Finance]
+      operationId: getFinanceSummary
+      summary: Aggregated finance totals (income, expense, balance) per branch and per kind
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinanceSummary'
+
+  /attendance/services:
+    get:
+      tags: [Attendance]
+      operationId: listAttendanceServices
+      parameters:
+        - name: branchId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AttendanceService'
+    post:
+      tags: [Attendance]
+      operationId: createAttendanceService
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceServiceInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceService'
+  /attendance/services/{id}:
+    patch:
+      tags: [Attendance]
+      operationId: updateAttendanceService
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttendanceServiceInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceService'
+    delete:
+      tags: [Attendance]
+      operationId: deleteAttendanceService
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Deleted
+  /attendance/summary:
+    get:
+      tags: [Attendance]
+      operationId: getAttendanceSummary
+      summary: Recent attendance trend per branch
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSummary'
+
+  /storage/items:
+    get:
+      tags: [Storage]
+      operationId: listStorageItems
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StorageItem'
+    post:
+      tags: [Storage]
+      operationId: createStorageItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorageItemInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageItem'
+  /storage/items/{id}:
+    patch:
+      tags: [Storage]
+      operationId: updateStorageItem
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorageItemInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageItem'
+    delete:
+      tags: [Storage]
+      operationId: deleteStorageItem
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Deleted
+
+  /social-links:
+    get:
+      tags: [Social]
+      operationId: listSocialLinks
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SocialLink'
+    post:
+      tags: [Social]
+      operationId: createSocialLink
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SocialLinkInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialLink'
+  /social-links/{id}:
+    patch:
+      tags: [Social]
+      operationId: updateSocialLink
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SocialLinkInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialLink'
+    delete:
+      tags: [Social]
+      operationId: deleteSocialLink
+      parameters:
+        - $ref: '#/components/parameters/IdPath'
+      responses:
+        '204':
+          description: Deleted
+
+  /settings:
+    get:
+      tags: [Settings]
+      operationId: getSiteSettings
+      summary: Get church-wide settings (mission, vision, core values, contact)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteSettings'
+    put:
+      tags: [Settings]
+      operationId: updateSiteSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteSettingsInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteSettings'
+
+  /dashboard/summary:
+    get:
+      tags: [Dashboard]
+      operationId: getDashboardSummary
+      summary: Top-level dashboard summary across all sections
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummary'
+  /dashboard/recent-activity:
+    get:
+      tags: [Dashboard]
+      operationId: getRecentActivity
+      summary: Most recent events across the system
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActivityItem'
+
+components:
+  parameters:
+    IdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    AuthorizationSessionHeader:
+      name: Authorization
+      in: header
+      required: false
+      description: Opaque session token — `Bearer <sid>`.
+      schema:
+        type: string
+    SessionCookie:
+      name: sid
+      in: cookie
+      required: false
+      description: Browser session cookie.
+      schema:
+        type: string
+
+  schemas:
+    HealthStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+
+    AuthUser:
+      type: object
+      required: [id, email, firstName, lastName, profileImageUrl, role]
+      properties:
+        id:
+          type: string
+        email:
+          type: [string, 'null']
+          format: email
+        firstName:
+          type: [string, 'null']
+        lastName:
+          type: [string, 'null']
+        profileImageUrl:
+          type: [string, 'null']
+        role:
+          type: string
+          enum: [main_admin, leader, member, guest]
+    AuthUserEnvelope:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - $ref: '#/components/schemas/AuthUser'
+            - type: 'null'
+
+    PersonRole:
+      type: string
+      enum: [pastor, minister, member]
+
+    FinanceKind:
+      type: string
+      enum: [tithe, offering, pledge, donation, expense, other_income]
+
+    Branch:
+      type: object
+      required: [id, name, isMain, location, pastorInChargeName, contactPhone, contactEmail, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        isMain:
+          type: boolean
+        location:
+          type: string
+        pastorInChargeName:
+          type: [string, 'null']
+        contactPhone:
+          type: [string, 'null']
+        contactEmail:
+          type: [string, 'null']
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    BranchInput:
+      type: object
+      required: [name, location]
+      properties:
+        name:
+          type: string
+        isMain:
+          type: boolean
+        location:
+          type: string
+        pastorInChargeName:
+          type: [string, 'null']
+        contactPhone:
+          type: [string, 'null']
+        contactEmail:
+          type: [string, 'null']
+
+    Person:
+      type: object
+      required: [id, fullName, role, isLeader, branchId, departmentId, email, phone, photoUrl, bio, joinedOn, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        fullName:
+          type: string
+        role:
+          $ref: '#/components/schemas/PersonRole'
+        isLeader:
+          type: boolean
+        branchId:
+          type: [integer, 'null']
+        departmentId:
+          type: [integer, 'null']
+        email:
+          type: [string, 'null']
+          format: email
+        phone:
+          type: [string, 'null']
+        photoUrl:
+          type: [string, 'null']
+        bio:
+          type: [string, 'null']
+        joinedOn:
+          type: [string, 'null']
+          format: date
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PersonInput:
+      type: object
+      required: [fullName, role]
+      properties:
+        fullName:
+          type: string
+        role:
+          $ref: '#/components/schemas/PersonRole'
+        isLeader:
+          type: boolean
+        branchId:
+          type: [integer, 'null']
+        departmentId:
+          type: [integer, 'null']
+        email:
+          type: [string, 'null']
+          format: email
+        phone:
+          type: [string, 'null']
+        photoUrl:
+          type: [string, 'null']
+        bio:
+          type: [string, 'null']
+        joinedOn:
+          type: [string, 'null']
+          format: date
+
+    Department:
+      type: object
+      required: [id, name, description, branchId, leaderId, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: [string, 'null']
+        branchId:
+          type: [integer, 'null']
+        leaderId:
+          type: [integer, 'null']
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    DepartmentInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: [string, 'null']
+        branchId:
+          type: [integer, 'null']
+        leaderId:
+          type: [integer, 'null']
+
+    Announcement:
+      type: object
+      required: [id, title, body, mediaUrl, mediaType, isPublic, isPinned, branchId, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        body:
+          type: string
+        mediaUrl:
+          type: [string, 'null']
+        mediaType:
+          type: [string, 'null']
+          enum: [image, video, audio, null]
+        isPublic:
+          type: boolean
+        isPinned:
+          type: boolean
+        branchId:
+          type: [integer, 'null']
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    AnnouncementInput:
+      type: object
+      required: [title, body]
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        mediaUrl:
+          type: [string, 'null']
+        mediaType:
+          type: [string, 'null']
+          enum: [image, video, audio, null]
+        isPublic:
+          type: boolean
+        isPinned:
+          type: boolean
+        branchId:
+          type: [integer, 'null']
+
+    FinanceTransaction:
+      type: object
+      required: [id, kind, amount, currency, branchId, occurredOn, description, recordedBy, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        kind:
+          $ref: '#/components/schemas/FinanceKind'
+        amount:
+          type: number
+        currency:
+          type: string
+        branchId:
+          type: [integer, 'null']
+        occurredOn:
+          type: string
+          format: date
+        description:
+          type: [string, 'null']
+        recordedBy:
+          type: [string, 'null']
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    FinanceTransactionInput:
+      type: object
+      required: [kind, amount, occurredOn]
+      properties:
+        kind:
+          $ref: '#/components/schemas/FinanceKind'
+        amount:
+          type: number
+        currency:
+          type: string
+        branchId:
+          type: [integer, 'null']
+        occurredOn:
+          type: string
+          format: date
+        description:
+          type: [string, 'null']
+        recordedBy:
+          type: [string, 'null']
+    FinanceSummary:
+      type: object
+      required: [currency, totalIncome, totalExpense, balance, byKind, byBranch, monthly]
+      properties:
+        currency:
+          type: string
+        totalIncome:
+          type: number
+        totalExpense:
+          type: number
+        balance:
+          type: number
+        byKind:
+          type: array
+          items:
+            type: object
+            required: [kind, total]
+            properties:
+              kind:
+                $ref: '#/components/schemas/FinanceKind'
+              total:
+                type: number
+        byBranch:
+          type: array
+          items:
+            type: object
+            required: [branchId, branchName, income, expense]
+            properties:
+              branchId:
+                type: integer
+              branchName:
+                type: string
+              income:
+                type: number
+              expense:
+                type: number
+        monthly:
+          type: array
+          items:
+            type: object
+            required: [month, income, expense]
+            properties:
+              month:
+                type: string
+              income:
+                type: number
+              expense:
+                type: number
+
+    AttendanceService:
+      type: object
+      required: [id, title, branchId, serviceDate, adultCount, youthCount, childrenCount, totalCount, notes, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        branchId:
+          type: [integer, 'null']
+        serviceDate:
+          type: string
+          format: date
+        adultCount:
+          type: integer
+        youthCount:
+          type: integer
+        childrenCount:
+          type: integer
+        totalCount:
+          type: integer
+        notes:
+          type: [string, 'null']
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    AttendanceServiceInput:
+      type: object
+      required: [title, serviceDate]
+      properties:
+        title:
+          type: string
+        branchId:
+          type: [integer, 'null']
+        serviceDate:
+          type: string
+          format: date
+        adultCount:
+          type: integer
+        youthCount:
+          type: integer
+        childrenCount:
+          type: integer
+        notes:
+          type: [string, 'null']
+    AttendanceSummary:
+      type: object
+      required: [latestTotal, weeksTracked, byBranch, recent]
+      properties:
+        latestTotal:
+          type: integer
+        weeksTracked:
+          type: integer
+        byBranch:
+          type: array
+          items:
+            type: object
+            required: [branchId, branchName, total]
+            properties:
+              branchId:
+                type: integer
+              branchName:
+                type: string
+              total:
+                type: integer
+        recent:
+          type: array
+          items:
+            type: object
+            required: [serviceDate, total]
+            properties:
+              serviceDate:
+                type: string
+                format: date
+              total:
+                type: integer
+
+    StorageItem:
+      type: object
+      required: [id, title, category, fileUrl, fileType, fileSize, uploadedBy, description, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+        fileUrl:
+          type: string
+        fileType:
+          type: [string, 'null']
+        fileSize:
+          type: [integer, 'null']
+        uploadedBy:
+          type: [string, 'null']
+        description:
+          type: [string, 'null']
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    StorageItemInput:
+      type: object
+      required: [title, category, fileUrl]
+      properties:
+        title:
+          type: string
+        category:
+          type: string
+        fileUrl:
+          type: string
+        fileType:
+          type: [string, 'null']
+        fileSize:
+          type: [integer, 'null']
+        uploadedBy:
+          type: [string, 'null']
+        description:
+          type: [string, 'null']
+
+    SocialLink:
+      type: object
+      required: [id, platform, url, handle, isActive, sortOrder, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        platform:
+          type: string
+        url:
+          type: string
+        handle:
+          type: [string, 'null']
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    SocialLinkInput:
+      type: object
+      required: [platform, url]
+      properties:
+        platform:
+          type: string
+        url:
+          type: string
+        handle:
+          type: [string, 'null']
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+
+    SiteSettings:
+      type: object
+      required: [id, churchName, abbreviation, tagline, missionStatement, visionStatement, coreValues, address, primaryPhone, primaryEmail, heroImageUrl, logoUrl, updatedAt]
+      properties:
+        id:
+          type: integer
+        churchName:
+          type: string
+        abbreviation:
+          type: string
+        tagline:
+          type: [string, 'null']
+        missionStatement:
+          type: string
+        visionStatement:
+          type: string
+        coreValues:
+          type: array
+          items:
+            type: string
+        address:
+          type: [string, 'null']
+        primaryPhone:
+          type: [string, 'null']
+        primaryEmail:
+          type: [string, 'null']
+        heroImageUrl:
+          type: [string, 'null']
+        logoUrl:
+          type: [string, 'null']
+        updatedAt:
+          type: string
+          format: date-time
+    SiteSettingsInput:
+      type: object
+      required: [churchName, abbreviation, missionStatement, visionStatement, coreValues]
+      properties:
+        churchName:
+          type: string
+        abbreviation:
+          type: string
+        tagline:
+          type: [string, 'null']
+        missionStatement:
+          type: string
+        visionStatement:
+          type: string
+        coreValues:
+          type: array
+          items:
+            type: string
+        address:
+          type: [string, 'null']
+        primaryPhone:
+          type: [string, 'null']
+        primaryEmail:
+          type: [string, 'null']
+        heroImageUrl:
+          type: [string, 'null']
+        logoUrl:
+          type: [string, 'null']
+
+    PublicSite:
+      type: object
+      required: [settings, branches, socialLinks, announcements, leadership]
+      properties:
+        settings:
+          $ref: '#/components/schemas/SiteSettings'
+        branches:
+          type: array
+          items:
+            $ref: '#/components/schemas/Branch'
+        socialLinks:
+          type: array
+          items:
+            $ref: '#/components/schemas/SocialLink'
+        announcements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Announcement'
+        leadership:
+          type: array
+          items:
+            $ref: '#/components/schemas/Person'
+
+    DashboardSummary:
+      type: object
+      required: [totals, branches, finance, attendance]
+      properties:
+        totals:
+          type: object
+          required: [pastors, ministers, members, branches, departments, announcements, storageItems]
+          properties:
+            pastors:
+              type: integer
+            ministers:
+              type: integer
+            members:
+              type: integer
+            branches:
+              type: integer
+            departments:
+              type: integer
+            announcements:
+              type: integer
+            storageItems:
+              type: integer
+        branches:
+          type: array
+          items:
+            type: object
+            required: [id, name, members]
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              members:
+                type: integer
+        finance:
+          type: object
+          required: [totalIncome, totalExpense, balance, currency]
+          properties:
+            totalIncome:
+              type: number
+            totalExpense:
+              type: number
+            balance:
+              type: number
+            currency:
+              type: string
+        attendance:
+          type: object
+          required: [latestTotal, weeksTracked]
+          properties:
+            latestTotal:
+              type: integer
+            weeksTracked:
+              type: integer
+
+    ActivityItem:
+      type: object
+      required: [id, kind, title, occurredAt]
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          enum: [announcement, finance, attendance, person, storage]
+        title:
+          type: string
+        subtitle:
+          type: [string, 'null']
+        occurredAt:
+          type: string
+          format: date-time
