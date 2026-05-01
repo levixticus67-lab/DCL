@@ -38,5 +38,5 @@ jobs:
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DELIVERANCE_CHURCH_LUGAZI }}
-          projectId: deliverance-church-lugazi
+          projectId: dcl-church
           entryPoint: artifacts/dcl-church
