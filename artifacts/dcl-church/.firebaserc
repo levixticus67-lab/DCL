@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "deliverance-church-lugazi"
-  }
+    "default": "dcl-church"
+  },
+  "targets": {},
+  "etags": {}
 }
