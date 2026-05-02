@@ -16,14 +16,15 @@ import {
 
 const router: IRouter = Router();
 
-router.get("/storage", requireStorageView, async (req, res) => {
+router.get("/storage/items", requireStorageView, async (req, res) => {
   const category = req.query.category as string | undefined;
   const search = req.query.search as string | undefined;
   const sortBy = (req.query.sortBy as string) || "date";
   const sortDir = req.query.sortDir === "asc" ? "asc" : "desc";
 
   const filters = [] as ReturnType<typeof eq>[];
-  if (category && category !== "all") filters.push(eq(storageItemsTable.category, category));
+  if (category && category !== "all")
+    filters.push(eq(storageItemsTable.category, category));
   if (search) {
     const like = `%${search}%`;
     const sf = or(
@@ -34,9 +35,11 @@ router.get("/storage", requireStorageView, async (req, res) => {
   }
 
   const orderCol =
-    sortBy === "title" ? storageItemsTable.title :
-    sortBy === "category" ? storageItemsTable.category :
-    storageItemsTable.createdAt;
+    sortBy === "title"
+      ? storageItemsTable.title
+      : sortBy === "category"
+        ? storageItemsTable.category
+        : storageItemsTable.createdAt;
 
   const rows = await db
     .select()
@@ -47,13 +50,13 @@ router.get("/storage", requireStorageView, async (req, res) => {
   res.json(ListStorageItemsResponse.parse(rows.map(serialize)));
 });
 
-router.post("/storage", requireStorageAdd, async (req, res) => {
+router.post("/storage/items", requireStorageAdd, async (req, res) => {
   const body = CreateStorageItemBody.parse(req.body);
   const [row] = await db.insert(storageItemsTable).values(body).returning();
   res.status(201).json(serialize(row));
 });
 
-router.patch("/storage/:id", requireStorageEdit, async (req, res) => {
+router.patch("/storage/items/:id", requireStorageEdit, async (req, res) => {
   const id = Number(req.params.id);
   const body = UpdateStorageItemBody.parse(req.body);
   const [row] = await db
@@ -61,11 +64,14 @@ router.patch("/storage/:id", requireStorageEdit, async (req, res) => {
     .set(body)
     .where(eq(storageItemsTable.id, id))
     .returning();
-  if (!row) { res.status(404).json({ error: "Not found" }); return; }
+  if (!row) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
   res.json(UpdateStorageItemResponse.parse(serialize(row)));
 });
 
-router.delete("/storage/:id", requireStorageDelete, async (req, res) => {
+router.delete("/storage/items/:id", requireStorageDelete, async (req, res) => {
   const id = Number(req.params.id);
   await db.delete(storageItemsTable).where(eq(storageItemsTable.id, id));
   res.status(204).send();
