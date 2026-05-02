@@ -8,7 +8,7 @@ import {
   UpdateFinanceTransactionResponse,
   GetFinanceSummaryResponse,
 } from "@workspace/api-zod";
-import { requireAdmin, requireAuth } from "../middlewares/requireAuth";
+import { requireFinanceAccess, requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
@@ -26,7 +26,7 @@ router.get("/finance/transactions", requireAuth, async (req, res) => {
   res.json(ListFinanceTransactionsResponse.parse(rows.map(serialize)));
 });
 
-router.post("/finance/transactions", requireAdmin, async (req, res) => {
+router.post("/finance/transactions", requireFinanceAccess, async (req, res) => {
   const body = CreateFinanceTransactionBody.parse(req.body);
   const [row] = await db
     .insert(financeTransactionsTable)
@@ -39,32 +39,40 @@ router.post("/finance/transactions", requireAdmin, async (req, res) => {
   res.status(201).json(serialize(row));
 });
 
-router.patch("/finance/transactions/:id", requireAdmin, async (req, res) => {
-  const id = Number(req.params.id);
-  const body = UpdateFinanceTransactionBody.parse(req.body);
-  const { amount, occurredOn, ...rest } = body;
-  const update: Record<string, unknown> = { ...rest };
-  if (amount !== undefined) update.amount = String(amount);
-  if (occurredOn !== undefined) update.occurredOn = toDateOnly(occurredOn);
-  const [row] = await db
-    .update(financeTransactionsTable)
-    .set(update)
-    .where(eq(financeTransactionsTable.id, id))
-    .returning();
-  if (!row) {
-    res.status(404).json({ error: "Not found" });
-    return;
-  }
-  res.json(UpdateFinanceTransactionResponse.parse(serialize(row)));
-});
+router.patch(
+  "/finance/transactions/:id",
+  requireFinanceAccess,
+  async (req, res) => {
+    const id = Number(req.params.id);
+    const body = UpdateFinanceTransactionBody.parse(req.body);
+    const { amount, occurredOn, ...rest } = body;
+    const update: Record<string, unknown> = { ...rest };
+    if (amount !== undefined) update.amount = String(amount);
+    if (occurredOn !== undefined) update.occurredOn = toDateOnly(occurredOn);
+    const [row] = await db
+      .update(financeTransactionsTable)
+      .set(update)
+      .where(eq(financeTransactionsTable.id, id))
+      .returning();
+    if (!row) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json(UpdateFinanceTransactionResponse.parse(serialize(row)));
+  },
+);
 
-router.delete("/finance/transactions/:id", requireAdmin, async (req, res) => {
-  const id = Number(req.params.id);
-  await db
-    .delete(financeTransactionsTable)
-    .where(eq(financeTransactionsTable.id, id));
-  res.status(204).send();
-});
+router.delete(
+  "/finance/transactions/:id",
+  requireFinanceAccess,
+  async (req, res) => {
+    const id = Number(req.params.id);
+    await db
+      .delete(financeTransactionsTable)
+      .where(eq(financeTransactionsTable.id, id));
+    res.status(204).send();
+  },
+);
 
 router.get("/finance/summary", requireAuth, async (_req, res) => {
   const allRows = await db.select().from(financeTransactionsTable);

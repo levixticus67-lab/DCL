@@ -1,6 +1,6 @@
 import { type Request, type Response, type NextFunction } from "express";
 import type { AuthUser } from "@workspace/api-zod";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, peopleTable } from "@workspace/db";
 import { sql, eq } from "drizzle-orm";
 import { getFirebaseAuth } from "../lib/firebase-admin";
 
@@ -93,9 +93,6 @@ export async function authMiddleware(
   try {
     decoded = await getFirebaseAuth().verifyIdToken(token);
   } catch (err) {
-    // Token is present but invalid/expired/wrong-project. Surface this
-    // clearly instead of pretending the user is anonymous, which used to
-    // cause silent sign-in loops.
     req.log?.warn({ err }, "Firebase ID token verification failed");
     res.status(401).json({
       error: "Invalid auth token",
@@ -129,6 +126,45 @@ export async function authMiddleware(
       .select()
       .from(usersTable)
       .where(eq(usersTable.id, user.id));
+
+    // Auto role detection: if this user is still a plain member but their
+    // email matches a person record with a specific role, promote them
+    // automatically so they land in the right dashboard on login.
+    if (fresh.role === "member" && fresh.email) {
+      const [matchedPerson] = await db
+        .select()
+        .from(peopleTable)
+        .where(eq(peopleTable.email, fresh.email));
+
+      const promotableRoles = [
+        "pastor",
+        "minister",
+        "finance_head",
+        "branch_head",
+        "leader",
+      ];
+      if (
+        matchedPerson?.role &&
+        promotableRoles.includes(matchedPerson.role)
+      ) {
+        const [promoted] = await db
+          .update(usersTable)
+          .set({ role: matchedPerson.role, updatedAt: new Date() })
+          .where(eq(usersTable.id, fresh.id))
+          .returning();
+
+        req.user = {
+          id: promoted.id,
+          email: promoted.email,
+          firstName: promoted.firstName,
+          lastName: promoted.lastName,
+          profileImageUrl: promoted.profileImageUrl,
+          role: promoted.role as "main_admin" | "leader" | "member" | "guest",
+        };
+        next();
+        return;
+      }
+    }
 
     req.user = {
       id: fresh.id,

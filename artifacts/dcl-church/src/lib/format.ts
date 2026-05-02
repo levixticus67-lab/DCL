@@ -43,14 +43,20 @@ export function roleLabel(role: string): string {
   switch (role) {
     case "main_admin":
       return "Main Pastor";
-    case "leader":
-      return "Leader";
-    case "member":
-      return "Member";
     case "pastor":
       return "Pastor";
     case "minister":
       return "Minister";
+    case "finance_head":
+      return "Finance Head";
+    case "branch_head":
+      return "Branch Head";
+    case "leader":
+      return "Leader";
+    case "member":
+      return "Member";
+    case "guest":
+      return "Guest";
     default:
       return role;
   }

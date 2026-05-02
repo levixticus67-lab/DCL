@@ -4,15 +4,23 @@ import { Toaster as SonnerToaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import NotFound from "@/pages/not-found";
-import { RequireAuth } from "@/components/page-loader";
+import {
+  RequireAuth,
+  RequirePortalRole,
+  RequireFinanceRole,
+  RequireMainAdmin,
+} from "@/components/page-loader";
 
 import HomePage from "@/pages/public/home";
 import AboutPage from "@/pages/public/about";
 import AnnouncementsPage from "@/pages/public/announcements";
 import BranchesPage from "@/pages/public/branches";
 import SignInPage from "@/pages/sign-in";
+import MemberDashboardPage from "@/pages/member-dashboard";
 
 import DashboardPage from "@/pages/portal/dashboard";
+import LeaderDashboardPage from "@/pages/portal/leader-dashboard";
+import UsersPage from "@/pages/portal/users";
 import PortalPeoplePage from "@/pages/portal/people";
 import PortalBranchesPage from "@/pages/portal/branches";
 import PortalDepartmentsPage from "@/pages/portal/departments";
@@ -40,34 +48,64 @@ function withAuth(Component: React.ComponentType) {
   );
 }
 
+function withPortal(Component: React.ComponentType) {
+  return () => (
+    <RequirePortalRole>
+      <Component />
+    </RequirePortalRole>
+  );
+}
+
+function withFinance(Component: React.ComponentType) {
+  return () => (
+    <RequireFinanceRole>
+      <Component />
+    </RequireFinanceRole>
+  );
+}
+
+function withMainAdmin(Component: React.ComponentType) {
+  return () => (
+    <RequireMainAdmin>
+      <Component />
+    </RequireMainAdmin>
+  );
+}
+
 function Router() {
   return (
     <Switch>
+      {/* Public routes */}
       <Route path="/" component={HomePage} />
       <Route path="/about" component={AboutPage} />
       <Route path="/announcements" component={AnnouncementsPage} />
       <Route path="/branches" component={BranchesPage} />
       <Route path="/sign-in" component={SignInPage} />
 
-      <Route path="/portal" component={withAuth(DashboardPage)} />
-      <Route path="/portal/people" component={withAuth(PortalPeoplePage)} />
-      <Route path="/portal/branches" component={withAuth(PortalBranchesPage)} />
-      <Route
-        path="/portal/departments"
-        component={withAuth(PortalDepartmentsPage)}
-      />
-      <Route
-        path="/portal/announcements"
-        component={withAuth(PortalAnnouncementsPage)}
-      />
-      <Route path="/portal/finance" component={withAuth(PortalFinancePage)} />
-      <Route
-        path="/portal/attendance"
-        component={withAuth(PortalAttendancePage)}
-      />
-      <Route path="/portal/storage" component={withAuth(PortalStoragePage)} />
-      <Route path="/portal/social" component={withAuth(PortalSocialPage)} />
-      <Route path="/portal/settings" component={withAuth(PortalSettingsPage)} />
+      {/* Member-only landing (no portal access) */}
+      <Route path="/member" component={withAuth(MemberDashboardPage)} />
+
+      {/* Main admin dashboard */}
+      <Route path="/portal" component={withPortal(DashboardPage)} />
+
+      {/* Leader / pastor dashboard */}
+      <Route path="/portal/leader" component={withPortal(LeaderDashboardPage)} />
+
+      {/* User management — main admin only */}
+      <Route path="/portal/users" component={withMainAdmin(UsersPage)} />
+
+      {/* General portal pages — any portal role */}
+      <Route path="/portal/people" component={withPortal(PortalPeoplePage)} />
+      <Route path="/portal/branches" component={withPortal(PortalBranchesPage)} />
+      <Route path="/portal/departments" component={withPortal(PortalDepartmentsPage)} />
+      <Route path="/portal/announcements" component={withPortal(PortalAnnouncementsPage)} />
+      <Route path="/portal/attendance" component={withPortal(PortalAttendancePage)} />
+      <Route path="/portal/storage" component={withPortal(PortalStoragePage)} />
+      <Route path="/portal/social" component={withPortal(PortalSocialPage)} />
+      <Route path="/portal/settings" component={withPortal(PortalSettingsPage)} />
+
+      {/* Finance — restricted to finance_head + main_admin */}
+      <Route path="/portal/finance" component={withFinance(PortalFinancePage)} />
 
       <Route component={NotFound} />
     </Switch>

@@ -15,27 +15,62 @@ import {
   Church,
   LogOut,
   ArrowLeft,
+  ShieldCheck,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { roleLabel } from "@/lib/format";
 
-const NAV = [
-  { href: "/portal", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/portal/people", label: "People", icon: Users },
-  { href: "/portal/branches", label: "Branches", icon: Building2 },
-  { href: "/portal/departments", label: "Departments", icon: Boxes },
-  { href: "/portal/announcements", label: "Announcements", icon: Megaphone },
-  { href: "/portal/finance", label: "Finance", icon: Wallet },
-  { href: "/portal/attendance", label: "Attendance", icon: CalendarCheck },
-  { href: "/portal/storage", label: "Storage", icon: FolderOpen },
-  { href: "/portal/social", label: "Social Links", icon: Share2 },
-  { href: "/portal/settings", label: "Settings", icon: Settings },
+const ADMIN_ROLES = ["main_admin"];
+const FINANCE_ROLES = ["main_admin", "finance_head"];
+const PORTAL_ROLES = [
+  "main_admin",
+  "pastor",
+  "minister",
+  "finance_head",
+  "branch_head",
+  "leader",
 ];
+
+function buildNav(role: string) {
+  const isMainAdmin = role === "main_admin";
+  const hasFinance = FINANCE_ROLES.includes(role);
+  const dashHref = isMainAdmin ? "/portal" : "/portal/leader";
+
+  const nav = [
+    { href: dashHref, label: "Dashboard", icon: LayoutDashboard, exact: true },
+    { href: "/portal/people", label: "People", icon: Users },
+    { href: "/portal/branches", label: "Branches", icon: Building2 },
+    { href: "/portal/departments", label: "Departments", icon: Boxes },
+    { href: "/portal/announcements", label: "Announcements", icon: Megaphone },
+    { href: "/portal/attendance", label: "Attendance", icon: CalendarCheck },
+    { href: "/portal/storage", label: "Storage", icon: FolderOpen },
+    { href: "/portal/social", label: "Social Links", icon: Share2 },
+  ];
+
+  if (hasFinance) {
+    nav.splice(5, 0, {
+      href: "/portal/finance",
+      label: "Finance",
+      icon: Wallet,
+      exact: false,
+    });
+  }
+
+  if (isMainAdmin) {
+    nav.push({ href: "/portal/settings", label: "Settings", icon: Settings });
+    nav.push({ href: "/portal/users", label: "User Roles", icon: ShieldCheck });
+  }
+
+  return nav;
+}
 
 export function PortalLayout({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const auth = useAuth();
+  const role = auth.user?.role ?? "member";
+  const NAV = buildNav(role);
+
   const initials =
     [auth.user?.firstName, auth.user?.lastName]
       .filter(Boolean)
@@ -206,7 +241,13 @@ export function PortalHeader({
 }
 
 export function canEdit(role: string | undefined): boolean {
-  return role === "main_admin" || role === "leader";
+  return (
+    role === "main_admin" ||
+    role === "leader" ||
+    role === "pastor" ||
+    role === "minister" ||
+    role === "branch_head"
+  );
 }
 
 export function isMainAdmin(role: string | undefined): boolean {
