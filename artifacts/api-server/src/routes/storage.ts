@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, or } from "drizzle-orm";
 import { db, storageItemsTable } from "@workspace/db";
 import {
   ListStorageItemsResponse,
@@ -7,28 +7,53 @@ import {
   UpdateStorageItemBody,
   UpdateStorageItemResponse,
 } from "@workspace/api-zod";
-import { requireAdmin, requireAuth } from "../middlewares/requireAuth";
+import {
+  requireStorageView,
+  requireStorageAdd,
+  requireStorageEdit,
+  requireStorageDelete,
+} from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-router.get("/storage", requireAuth, async (req, res) => {
+router.get("/storage", requireStorageView, async (req, res) => {
   const category = req.query.category as string | undefined;
-  const filters = category ? [eq(storageItemsTable.category, category)] : [];
+  const search = req.query.search as string | undefined;
+  const sortBy = (req.query.sortBy as string) || "date";
+  const sortDir = req.query.sortDir === "asc" ? "asc" : "desc";
+
+  const filters = [] as ReturnType<typeof eq>[];
+  if (category && category !== "all") filters.push(eq(storageItemsTable.category, category));
+  if (search) {
+    const like = `%${search}%`;
+    const sf = or(
+      ilike(storageItemsTable.title, like),
+      ilike(storageItemsTable.description, like),
+    );
+    if (sf) filters.push(sf as ReturnType<typeof eq>);
+  }
+
+  const orderCol =
+    sortBy === "title" ? storageItemsTable.title :
+    sortBy === "category" ? storageItemsTable.category :
+    storageItemsTable.createdAt;
+
   const rows = await db
     .select()
     .from(storageItemsTable)
     .where(filters.length ? and(...filters) : undefined)
-    .orderBy(desc(storageItemsTable.createdAt));
+    .orderBy(sortDir === "asc" ? asc(orderCol) : desc(orderCol));
+
   res.json(ListStorageItemsResponse.parse(rows.map(serialize)));
 });
 
-router.post("/storage", requireAdmin, async (req, res) => {
+router.post("/storage", requireStorageAdd, async (req, res) => {
   const body = CreateStorageItemBody.parse(req.body);
   const [row] = await db.insert(storageItemsTable).values(body).returning();
   res.status(201).json(serialize(row));
 });
 
-router.patch("/storage/:id", requireAdmin, async (req, res) => {
+router.patch("/storage/:id", requireStorageEdit, async (req, res) => {
   const id = Number(req.params.id);
   const body = UpdateStorageItemBody.parse(req.body);
   const [row] = await db
@@ -36,14 +61,11 @@ router.patch("/storage/:id", requireAdmin, async (req, res) => {
     .set(body)
     .where(eq(storageItemsTable.id, id))
     .returning();
-  if (!row) {
-    res.status(404).json({ error: "Not found" });
-    return;
-  }
+  if (!row) { res.status(404).json({ error: "Not found" }); return; }
   res.json(UpdateStorageItemResponse.parse(serialize(row)));
 });
 
-router.delete("/storage/:id", requireAdmin, async (req, res) => {
+router.delete("/storage/:id", requireStorageDelete, async (req, res) => {
   const id = Number(req.params.id);
   await db.delete(storageItemsTable).where(eq(storageItemsTable.id, id));
   res.status(204).send();

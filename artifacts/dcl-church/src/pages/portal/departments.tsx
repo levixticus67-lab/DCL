@@ -11,27 +11,22 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
-import { PortalLayout, PortalHeader, canEdit } from "@/components/portal-layout";
+import { PortalLayout, PortalHeader } from "@/components/portal-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Boxes } from "lucide-react";
+import { Plus, Pencil, Trash2, Boxes, Users } from "lucide-react";
 import { toast } from "sonner";
+
+const CAN_MANAGE_ROLES = ["main_admin", "pastor", "minister", "finance_head", "branch_head"];
 
 interface DeptForm {
   name: string;
@@ -43,7 +38,9 @@ const empty: DeptForm = { name: "", description: "", branchId: null, leaderId: n
 
 export default function DepartmentsPage() {
   const auth = useAuth();
-  const editable = canEdit(auth.user?.role);
+  const role = auth.user?.role ?? "member";
+  const canManage = CAN_MANAGE_ROLES.includes(role);
+
   const qc = useQueryClient();
   const { data: departments } = useListDepartments();
   const { data: branches } = useListBranches();
@@ -82,10 +79,7 @@ export default function DepartmentsPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.name.trim()) {
-      toast.error("Name required");
-      return;
-    }
+    if (!form.name.trim()) { toast.error("Name required"); return; }
     const payload = {
       name: form.name.trim(),
       description: form.description.trim() || null,
@@ -98,9 +92,7 @@ export default function DepartmentsPage() {
       toast.success("Saved");
       setOpen(false);
       await invalidate();
-    } catch {
-      toast.error("Could not save");
-    }
+    } catch { toast.error("Could not save"); }
   }
 
   async function onDelete(id: number) {
@@ -109,25 +101,22 @@ export default function DepartmentsPage() {
       await remove.mutateAsync({ id });
       toast.success("Removed");
       await invalidate();
-    } catch {
-      toast.error("Could not delete");
-    }
+    } catch { toast.error("Could not delete"); }
   }
 
   return (
     <PortalLayout>
       <PortalHeader
         title="Departments"
-        subtitle="Ministries within DCL"
+        subtitle="Ministries and groups within DCL"
         actions={
-          editable ? (
+          canManage ? (
             <Button
               onClick={openCreate}
               className="bg-gradient-to-r from-[hsl(215,80%,32%)] to-[hsl(199,89%,45%)] text-white shadow-md"
               data-testid="button-add-department"
             >
-              <Plus className="size-4 mr-1" />
-              Add department
+              <Plus className="size-4 mr-1" /> Add department
             </Button>
           ) : null
         }
@@ -137,28 +126,27 @@ export default function DepartmentsPage() {
         {departments?.map((d) => {
           const branch = branches?.find((b) => b.id === d.branchId);
           const leader = people?.find((p) => p.id === d.leaderId);
+          const memberCount = (people ?? []).filter((p) => p.departmentId === d.id).length;
+
           return (
-            <div
-              key={d.id}
-              className="glass-strong rounded-2xl p-6"
-              data-testid={`card-department-${d.id}`}
-            >
+            <div key={d.id} className="glass-strong rounded-2xl p-6" data-testid={`card-department-${d.id}`}>
               <div className="size-10 rounded-xl bg-gradient-to-br from-[hsl(215,80%,32%)] to-[hsl(199,89%,53%)] grid place-items-center text-white mb-3">
                 <Boxes className="size-5" />
               </div>
-              <h3 className="font-serif text-lg text-[hsl(215,80%,22%)]">
-                {d.name}
-              </h3>
+              <h3 className="font-serif text-lg text-[hsl(215,80%,22%)]">{d.name}</h3>
               {d.description && (
-                <p className="mt-2 text-sm text-[hsl(215,40%,32%)]">
-                  {d.description}
-                </p>
+                <p className="mt-2 text-sm text-[hsl(215,40%,32%)]">{d.description}</p>
               )}
               <div className="mt-3 text-xs text-[hsl(215,40%,40%)] space-y-1">
                 {branch && <div>Branch: {branch.name}</div>}
                 {leader && <div>Leader: {leader.fullName}</div>}
+                <div className="flex items-center gap-1">
+                  <Users className="size-3" />
+                  {memberCount} member{memberCount !== 1 ? "s" : ""}
+                </div>
               </div>
-              {editable && (
+
+              {canManage && (
                 <div className="flex gap-1 mt-4">
                   <Button
                     size="sm"
@@ -167,8 +155,7 @@ export default function DepartmentsPage() {
                     className="flex-1"
                     data-testid={`button-edit-department-${d.id}`}
                   >
-                    <Pencil className="size-3.5 mr-1" />
-                    Edit
+                    <Pencil className="size-3.5 mr-1" /> Edit
                   </Button>
                   <Button
                     size="sm"
@@ -200,83 +187,32 @@ export default function DepartmentsPage() {
           </DialogHeader>
           <form onSubmit={onSubmit} className="space-y-4">
             <Field label="Name">
-              <Input
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                required
-                data-testid="input-dept-name"
-              />
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required data-testid="input-dept-name" />
             </Field>
             <Field label="Description">
-              <Textarea
-                value={form.description}
-                onChange={(e) =>
-                  setForm({ ...form, description: e.target.value })
-                }
-                rows={3}
-                data-testid="input-dept-description"
-              />
+              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} data-testid="input-dept-description" />
             </Field>
             <Field label="Branch">
-              <Select
-                value={form.branchId?.toString() ?? "none"}
-                onValueChange={(v) =>
-                  setForm({
-                    ...form,
-                    branchId: v === "none" ? null : Number(v),
-                  })
-                }
-              >
-                <SelectTrigger data-testid="select-dept-branch">
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={form.branchId?.toString() ?? "none"} onValueChange={(v) => setForm({ ...form, branchId: v === "none" ? null : Number(v) })}>
+                <SelectTrigger data-testid="select-dept-branch"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">— None —</SelectItem>
-                  {branches?.map((b) => (
-                    <SelectItem key={b.id} value={b.id.toString()}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
+                  {branches?.map((b) => <SelectItem key={b.id} value={b.id.toString()}>{b.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </Field>
-            <Field label="Leader">
-              <Select
-                value={form.leaderId?.toString() ?? "none"}
-                onValueChange={(v) =>
-                  setForm({
-                    ...form,
-                    leaderId: v === "none" ? null : Number(v),
-                  })
-                }
-              >
-                <SelectTrigger data-testid="select-dept-leader">
-                  <SelectValue />
-                </SelectTrigger>
+            <Field label="Department Head / Leader">
+              <Select value={form.leaderId?.toString() ?? "none"} onValueChange={(v) => setForm({ ...form, leaderId: v === "none" ? null : Number(v) })}>
+                <SelectTrigger data-testid="select-dept-leader"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">— None —</SelectItem>
-                  {people?.map((p) => (
-                    <SelectItem key={p.id} value={p.id.toString()}>
-                      {p.fullName}
-                    </SelectItem>
-                  ))}
+                  {people?.map((p) => <SelectItem key={p.id} value={p.id.toString()}>{p.fullName}</SelectItem>)}
                 </SelectContent>
               </Select>
             </Field>
             <DialogFooter>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className="bg-gradient-to-r from-[hsl(215,80%,32%)] to-[hsl(199,89%,45%)] text-white"
-                disabled={create.isPending || update.isPending}
-                data-testid="button-save-dept"
-              >
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button type="submit" className="bg-gradient-to-r from-[hsl(215,80%,32%)] to-[hsl(199,89%,45%)] text-white" disabled={create.isPending || update.isPending} data-testid="button-save-dept">
                 Save
               </Button>
             </DialogFooter>

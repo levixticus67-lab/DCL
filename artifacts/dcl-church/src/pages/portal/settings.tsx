@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { MediaUpload } from "@/components/media-upload";
 
 interface SettingsForm {
   churchName: string;
@@ -271,26 +272,41 @@ export default function SettingsPage() {
         </Card>
 
         <Card title="Branding">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <Field label="Logo URL">
-              <Input
-                value={form.logoUrl}
-                onChange={(e) => setForm({ ...form, logoUrl: e.target.value })}
-                disabled={!editable}
-                data-testid="input-set-logo"
-              />
-            </Field>
-            <Field label="Hero image URL">
-              <Input
-                value={form.heroImageUrl}
-                onChange={(e) =>
-                  setForm({ ...form, heroImageUrl: e.target.value })
-                }
-                disabled={!editable}
-                data-testid="input-set-hero"
-              />
-            </Field>
-          </div>
+          {editable ? (
+            <div className="space-y-4">
+              <Field label="Church logo">
+                <MediaUpload
+                  value={form.logoUrl || null}
+                  mediaType="image"
+                  onChange={(url) => setForm({ ...form, logoUrl: url })}
+                  onClear={() => setForm({ ...form, logoUrl: "" })}
+                  folder="branding"
+                  accept="image"
+                  label="Upload logo"
+                />
+              </Field>
+              <Field label="Hero / banner image">
+                <MediaUpload
+                  value={form.heroImageUrl || null}
+                  mediaType="image"
+                  onChange={(url) => setForm({ ...form, heroImageUrl: url })}
+                  onClear={() => setForm({ ...form, heroImageUrl: "" })}
+                  folder="branding"
+                  accept="image"
+                  label="Upload hero image"
+                />
+              </Field>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Field label="Logo URL">
+                <Input value={form.logoUrl} disabled data-testid="input-set-logo" />
+              </Field>
+              <Field label="Hero image URL">
+                <Input value={form.heroImageUrl} disabled data-testid="input-set-hero" />
+              </Field>
+            </div>
+          )}
         </Card>
       </div>
     </PortalLayout>

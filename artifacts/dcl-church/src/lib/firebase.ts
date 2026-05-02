@@ -12,14 +12,16 @@ const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string | undefined,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as
-    | string
-    | undefined,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as string | undefined,
   appId: import.meta.env.VITE_FIREBASE_APP_ID as string | undefined,
 };
 
 export function isFirebaseConfigured(): boolean {
   return Boolean(config.apiKey && config.authDomain && config.projectId);
+}
+
+export function isStorageConfigured(): boolean {
+  return Boolean(config.storageBucket && isFirebaseConfigured());
 }
 
 let _app: FirebaseApp | null = null;
@@ -50,17 +52,36 @@ export function getFirebaseAuth(): Auth | null {
 export function getFirebaseStorage(): FirebaseStorage | null {
   if (_storage) return _storage;
   const app = getFirebaseApp();
-  if (!app) return null;
+  if (!app || !config.storageBucket) return null;
   _storage = getStorage(app);
   return _storage;
 }
 
-export async function uploadImage(file: File, folder = "general"): Promise<string> {
+export type MediaKind = "image" | "video" | "audio" | "document";
+
+export function detectMediaKind(file: File): MediaKind {
+  if (file.type.startsWith("image/")) return "image";
+  if (file.type.startsWith("video/")) return "video";
+  if (file.type.startsWith("audio/")) return "audio";
+  return "document";
+}
+
+export async function uploadMedia(
+  file: File,
+  folder = "general",
+): Promise<{ url: string; kind: MediaKind }> {
   const storage = getFirebaseStorage();
-  if (!storage) throw new Error("Firebase Storage is not configured.");
+  if (!storage) throw new Error("Firebase Storage is not configured. Enable it in Firebase Console (Blaze plan required).");
+  const kind = detectMediaKind(file);
   const storageRef = ref(storage, `uploads/${folder}/${Date.now()}_${file.name}`);
   await uploadBytes(storageRef, file);
-  return getDownloadURL(storageRef);
+  const url = await getDownloadURL(storageRef);
+  return { url, kind };
+}
+
+export async function uploadImage(file: File, folder = "general"): Promise<string> {
+  const { url } = await uploadMedia(file, folder);
+  return url;
 }
 
 let _provider: GoogleAuthProvider | null = null;
